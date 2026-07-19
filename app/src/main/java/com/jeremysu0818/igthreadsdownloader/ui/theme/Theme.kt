@@ -5,15 +5,16 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 
 private val AppColorScheme = darkColorScheme(
-    primary = AppPrimary,
-    secondary = AppPrimary,
-    tertiary = AppPrimary,
-    background = AppBackground,
-    surface = AppSurface,
-    onPrimary = AppText,
-    onSecondary = AppText,
-    onBackground = AppText,
-    onSurface = AppText,
+    primary = MattePrimary,
+    secondary = MatteEmerald,
+    tertiary = MattePrimary,
+    background = MatteBg,
+    surface = MatteCard,
+    onPrimary = MatteTextPrimary,
+    onSecondary = MatteTextPrimary,
+    onBackground = MatteTextPrimary,
+    onSurface = MatteTextPrimary,
+    surfaceContainer = MatteCardHover,
 )
 
 @Composable
