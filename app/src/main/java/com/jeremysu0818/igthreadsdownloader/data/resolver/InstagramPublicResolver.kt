@@ -12,11 +12,13 @@ import com.jeremysu0818.igthreadsdownloader.domain.resolver.ResolverResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Cookie
+import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -58,7 +60,10 @@ class InstagramPublicResolver(
                 if (response.request.url.encodedPath.startsWith("/accounts/login")) {
                     return@withContext ResolverResult.Failure(ResolverError.LoginRequired())
                 }
-                val cookieHeader = responseCookies(response.headers, response.request.url)
+                val cookies = responseCookieList(response.headers, response.request.url)
+                val cookieHeader = cookies
+                    .takeIf { it.isNotEmpty() }
+                    ?.joinToString("; ") { "${it.name}=${it.value}" }
                 when (
                     val parsed = parseHtml(
                         sourceUrl = normalized.normalizedUrl,
@@ -66,10 +71,25 @@ class InstagramPublicResolver(
                         cookieHeader = cookieHeader,
                     )
                 ) {
-                    is ResolverResult.Failure -> parsed
                     is ResolverResult.Success -> {
                         val enriched = client.enrichMediaMetadata(parsed.manifest.items)
                         ResolverResult.Success(parsed.manifest.copy(items = enriched))
+                    }
+                    is ResolverResult.Failure -> {
+                        if (parsed.error !is ResolverError.HtmlStructureChanged &&
+                            parsed.error !is ResolverError.LoginRequired
+                        ) {
+                            parsed
+                        } else {
+                            resolveGraphQlFallback(
+                                sourceUrl = normalized.normalizedUrl,
+                                shortcode = normalized.shortcode,
+                                html = responseText,
+                                cookies = cookies,
+                                cookieHeader = cookieHeader,
+                                originalFailure = parsed,
+                            )
+                        }
                     }
                 }
             }
@@ -81,6 +101,214 @@ class InstagramPublicResolver(
             )
         }
     }
+
+    private suspend fun resolveGraphQlFallback(
+        sourceUrl: String,
+        shortcode: String,
+        html: String,
+        cookies: List<Cookie>,
+        cookieHeader: String?,
+        originalFailure: ResolverResult.Failure,
+    ): ResolverResult {
+        val lsd = extractLsdToken(html) ?: return originalFailure
+        val csrfToken = cookies.firstOrNull { it.name == "csrftoken" }?.value
+            ?: return originalFailure
+        val variables = JSONObject()
+            .put("shortcode", shortcode)
+            .put(
+                "__relay_internal__pv__PolarisMultiCaptionCarouselEnabledrelayprovider",
+                false,
+            )
+            .toString()
+        val body = FormBody.Builder()
+            .add("doc_id", POST_ROOT_QUERY_DOCUMENT_ID)
+            .add("variables", variables)
+            .add("lsd", lsd)
+            .build()
+        val request = Request.Builder()
+            .url(INSTAGRAM_GRAPHQL_URL)
+            .post(body)
+            .header("User-Agent", ANDROID_CHROME_USER_AGENT)
+            .header("Accept", "application/json")
+            .header("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.8")
+            .header("Referer", sourceUrl)
+            .header("X-IG-App-ID", INSTAGRAM_WEB_APP_ID)
+            .header("X-ASBD-ID", INSTAGRAM_ASBD_ID)
+            .header("X-FB-LSD", lsd)
+            .header("X-CSRFToken", csrfToken)
+            .header("X-Requested-With", "XMLHttpRequest")
+            .apply {
+                cookieHeader?.takeIf { it.isNotBlank() }?.let { header("Cookie", it) }
+            }
+            .build()
+
+        return client.newCall(request).execute().use { response ->
+            val payload = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                if (response.code == 429) {
+                    ResolverResult.Failure(ResolverError.RateLimited())
+                } else {
+                    originalFailure
+                }
+            } else {
+                when (
+                    val parsed = parseGraphQlPayload(
+                        sourceUrl = sourceUrl,
+                        payload = payload,
+                        cookieHeader = cookieHeader,
+                    )
+                ) {
+                    is ResolverResult.Failure -> originalFailure
+                    is ResolverResult.Success -> {
+                        val enriched = client.enrichMediaMetadata(parsed.manifest.items)
+                        ResolverResult.Success(parsed.manifest.copy(items = enriched))
+                    }
+                }
+            }
+        }
+    }
+
+    internal fun parseGraphQlPayload(
+        sourceUrl: String,
+        payload: String,
+        cookieHeader: String? = null,
+    ): ResolverResult {
+        val normalized = UrlNormalizer.normalizeInstagram(sourceUrl)
+            ?: return ResolverResult.Failure(ResolverError.InvalidUrl())
+        val root = runCatching { JSONObject(payload) }.getOrNull()
+            ?: return ResolverResult.Failure(
+                ResolverError.HtmlStructureChanged("instagram", "invalid GraphQL response"),
+            )
+        val items = root.optJSONObject("data")
+            ?.optJSONObject("xdt_api__v1__media__shortcode__web_info")
+            ?.optJSONArray("items")
+        val media = items?.optJSONObject(0)
+            ?: return ResolverResult.Failure(
+                ResolverError.HtmlStructureChanged("instagram", "GraphQL response has no media"),
+            )
+
+        val carousel = media.optJSONArray("carousel_media")
+        val nodes = if (carousel != null && carousel.length() > 0) {
+            (0 until carousel.length()).mapNotNull(carousel::optJSONObject)
+        } else {
+            listOf(media)
+        }
+        val resolved = nodes.mapNotNull(::resolveGraphQlMedia)
+            .distinctBy { mediaIdentity(it.url) }
+            .take(MAX_MEDIA_ITEMS)
+        if (resolved.isEmpty()) {
+            return ResolverResult.Failure(
+                ResolverError.HtmlStructureChanged("instagram", "GraphQL media URLs are empty"),
+            )
+        }
+
+        val author = media.optJSONObject("user")
+            ?.optString("username")
+            ?.takeIf { it.isNotBlank() }
+        val caption = media.optJSONObject("caption")
+            ?.optString("text")
+            ?.takeIf { it.isNotBlank() }
+        val requestHeaders = buildMap {
+            put("User-Agent", ANDROID_CHROME_USER_AGENT)
+            put("Referer", normalized.normalizedUrl)
+            cookieHeader?.takeIf { it.isNotBlank() }?.let { put("Cookie", it) }
+        }
+        val filenames = mutableSetOf<String>()
+        val manifestItems = resolved.mapIndexed { index, candidate ->
+            val mimeType = inferMimeType(candidate.url, candidate.type)
+            val filename = FilenameGenerator.generate(
+                platform = MediaPlatform.INSTAGRAM,
+                author = author,
+                shortcode = normalized.shortcode,
+                index = index,
+                type = candidate.type,
+                mediaUrl = candidate.url,
+                mimeType = mimeType,
+                occupiedNames = filenames,
+            )
+            filenames += filename
+            MediaItem(
+                id = "instagram_${normalized.shortcode}_$index",
+                type = candidate.type,
+                downloadUrl = candidate.url,
+                thumbnailUrl = candidate.thumbnailUrl,
+                width = candidate.width,
+                height = candidate.height,
+                durationMs = null,
+                filename = filename,
+                contentLength = null,
+                mimeType = mimeType,
+                requestHeaders = requestHeaders,
+            )
+        }
+        val type = when {
+            carousel != null && carousel.length() > 0 -> ManifestType.CAROUSEL
+            normalized.type == ManifestType.REEL -> ManifestType.REEL
+            manifestItems.first().type == MediaItemType.VIDEO -> ManifestType.VIDEO
+            else -> ManifestType.PHOTO
+        }
+        return ResolverResult.Success(
+            MediaManifest(
+                platform = MediaPlatform.INSTAGRAM,
+                type = type,
+                author = author,
+                sourceUrl = normalized.normalizedUrl,
+                title = null,
+                caption = caption,
+                thumbnailUrl = resolved.firstOrNull()?.thumbnailUrl,
+                items = manifestItems,
+                isPartial = false,
+                warnings = emptyList(),
+            ),
+        )
+    }
+
+    private fun resolveGraphQlMedia(media: JSONObject): GraphQlMedia? {
+        val image = bestImageCandidate(media)
+        val videos = media.optJSONArray("video_versions")
+        val video = videos?.let { array ->
+            (0 until array.length())
+                .mapNotNull(array::optJSONObject)
+                .filter { it.optString("url").startsWith("http") }
+                .maxByOrNull { dimensionsArea(it) }
+        }
+        return if (video != null) {
+            GraphQlMedia(
+                url = video.optString("url"),
+                type = MediaItemType.VIDEO,
+                width = video.optInt("width").takeIf { it > 0 },
+                height = video.optInt("height").takeIf { it > 0 },
+                thumbnailUrl = image?.optString("url")?.takeIf { it.isNotBlank() },
+            )
+        } else if (image != null) {
+            GraphQlMedia(
+                url = image.optString("url"),
+                type = MediaItemType.IMAGE,
+                width = image.optInt("width").takeIf { it > 0 },
+                height = image.optInt("height").takeIf { it > 0 },
+                thumbnailUrl = image.optString("url"),
+            )
+        } else {
+            null
+        }
+    }
+
+    private fun bestImageCandidate(media: JSONObject): JSONObject? {
+        val candidates = media.optJSONObject("image_versions2")
+            ?.optJSONArray("candidates")
+            ?: return null
+        return (0 until candidates.length())
+            .mapNotNull(candidates::optJSONObject)
+            .filter { it.optString("url").startsWith("http") }
+            .maxByOrNull { dimensionsArea(it) }
+    }
+
+    private fun dimensionsArea(value: JSONObject): Long =
+        value.optLong("width").coerceAtLeast(0) *
+            value.optLong("height").coerceAtLeast(0)
+
+    private fun extractLsdToken(html: String): String? =
+        LSD_TOKEN_PATTERN.find(html)?.groupValues?.getOrNull(1)
 
     internal fun parseHtml(
         sourceUrl: String,
@@ -400,10 +628,8 @@ class InstagramPublicResolver(
         return mediaExtensions.any(path::endsWith)
     }
 
-    private fun responseCookies(headers: Headers, url: HttpUrl): String? =
+    private fun responseCookieList(headers: Headers, url: HttpUrl): List<Cookie> =
         Cookie.parseAll(url, headers)
-            .takeIf { it.isNotEmpty() }
-            ?.joinToString("; ") { "${it.name}=${it.value}" }
 
     private data class Candidate(
         val url: String,
@@ -413,8 +639,23 @@ class InstagramPublicResolver(
         val height: Int? = null,
     )
 
+    private data class GraphQlMedia(
+        val url: String,
+        val type: MediaItemType,
+        val width: Int?,
+        val height: Int?,
+        val thumbnailUrl: String?,
+    )
+
     companion object {
         private const val INSTAGRAM_BASE_URL = "https://www.instagram.com/"
+        private const val INSTAGRAM_GRAPHQL_URL = "https://www.instagram.com/graphql/query"
+        private const val INSTAGRAM_WEB_APP_ID = "936619743392459"
+        private const val INSTAGRAM_ASBD_ID = "129477"
+        private const val POST_ROOT_QUERY_DOCUMENT_ID = "27402151082740637"
+        private val LSD_TOKEN_PATTERN = Regex(
+            """"LSD"\s*,\s*\[\s*]\s*,\s*\{\s*"token"\s*:\s*"([^"]+)"""",
+        )
         private val scriptKeys = listOf(
             "video_url" to MediaItemType.VIDEO,
             "videoUrl" to MediaItemType.VIDEO,

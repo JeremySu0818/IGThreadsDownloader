@@ -61,4 +61,93 @@ class InstagramPublicResolverTest {
 
         assertTrue(result is ResolverResult.Success)
     }
+
+    @Test
+    fun graphQlReelUsesVideoVersionAndKeepsImageAsThumbnailOnly() {
+        val result = resolver.parseGraphQlPayload(
+            sourceUrl = "https://www.instagram.com/reel/Reel123/",
+            payload = """
+                {
+                  "data": {
+                    "xdt_api__v1__media__shortcode__web_info": {
+                      "items": [{
+                        "media_type": 2,
+                        "video_versions": [
+                          {"width": 480, "height": 854,
+                           "url": "https://instagram.example.fbcdn.net/v/reel-small.mp4?token=1"},
+                          {"width": 1080, "height": 1920,
+                           "url": "https://instagram.example.fbcdn.net/v/reel-hd.mp4?token=2"}
+                        ],
+                        "image_versions2": {"candidates": [
+                          {"width": 1080, "height": 1920,
+                           "url": "https://instagram.example.fbcdn.net/v/reel-cover.jpg?token=3"}
+                        ]},
+                        "user": {"username": "public.creator"},
+                        "caption": {"text": "Public reel"}
+                      }]
+                    }
+                  }
+                }
+            """.trimIndent(),
+            cookieHeader = "csrftoken=test",
+        )
+
+        assertTrue(result is ResolverResult.Success)
+        val manifest = (result as ResolverResult.Success).manifest
+        assertEquals(ManifestType.REEL, manifest.type)
+        assertEquals("public.creator", manifest.author)
+        assertEquals(1, manifest.items.size)
+        assertEquals(MediaItemType.VIDEO, manifest.items.single().type)
+        assertTrue("reel-hd.mp4" in manifest.items.single().downloadUrl)
+        assertTrue("reel-cover.jpg" in checkNotNull(manifest.items.single().thumbnailUrl))
+        assertTrue(manifest.items.none { "reel-cover.jpg" in it.downloadUrl })
+        assertEquals("csrftoken=test", manifest.items.single().requestHeaders["Cookie"])
+    }
+
+    @Test
+    fun graphQlCarouselCreatesOneDownloadForEachPhotoAndVideoNode() {
+        val result = resolver.parseGraphQlPayload(
+            sourceUrl = sourceUrl,
+            payload = """
+                {
+                  "data": {
+                    "xdt_api__v1__media__shortcode__web_info": {
+                      "items": [{
+                        "user": {"username": "carousel.owner"},
+                        "carousel_media": [
+                          {
+                            "media_type": 1,
+                            "image_versions2": {"candidates": [
+                              {"width": 1440, "height": 1080,
+                               "url": "https://instagram.example.fbcdn.net/v/photo.jpg?token=1"}
+                            ]}
+                          },
+                          {
+                            "media_type": 2,
+                            "video_versions": [
+                              {"width": 1080, "height": 1920,
+                               "url": "https://instagram.example.fbcdn.net/v/video.mp4?token=2"}
+                            ],
+                            "image_versions2": {"candidates": [
+                              {"width": 1080, "height": 1920,
+                               "url": "https://instagram.example.fbcdn.net/v/video-cover.jpg?token=3"}
+                            ]}
+                          }
+                        ]
+                      }]
+                    }
+                  }
+                }
+            """.trimIndent(),
+        )
+
+        assertTrue(result is ResolverResult.Success)
+        val manifest = (result as ResolverResult.Success).manifest
+        assertEquals(ManifestType.CAROUSEL, manifest.type)
+        assertEquals(2, manifest.items.size)
+        assertEquals(1, manifest.items.count { it.type == MediaItemType.IMAGE })
+        assertEquals(1, manifest.items.count { it.type == MediaItemType.VIDEO })
+        assertTrue(manifest.items.none { "video-cover.jpg" in it.downloadUrl })
+        assertFalse(manifest.isPartial)
+    }
 }
