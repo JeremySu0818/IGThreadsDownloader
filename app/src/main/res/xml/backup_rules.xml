@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude
+        domain="sharedpref"
+        path="download_history.xml" />
+    <exclude
+        domain="sharedpref"
+        path="overlay_preferences.xml" />
+</full-backup-content>

@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">ClipFlow</string>
+    <string name="accessibility_service_label">ClipFlow 媒體偵測</string>
+    <string name="accessibility_service_description">僅在 Instagram 與 Threads 前景時讀取畫面上的公開連結，讓使用者透過懸浮工具主動解析與下載；不會自動點擊或背景下載。</string>
+    <string name="overlay_notification_title">ClipFlow 懸浮工具運作中</string>
+    <string name="overlay_notification_text">只在你點擊下載後才會建立下載工作</string>
+    <string name="overlay_brand" translatable="false">CLIPFLOW</string>
+    <string name="media_kind_video">影片</string>
+    <string name="media_kind_image">圖片</string>
+    <string name="overlay_media_item">%1$d. %2$s · %3$s</string>
+</resources>
