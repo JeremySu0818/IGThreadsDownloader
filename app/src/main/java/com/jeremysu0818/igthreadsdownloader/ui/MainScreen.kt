@@ -153,7 +153,7 @@ private fun AppHeader() {
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                "CLIPFLOW",
+                "IGTHREADSDOWNLOADER",
                 color = TextPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,

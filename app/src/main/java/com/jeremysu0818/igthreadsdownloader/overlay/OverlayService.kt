@@ -114,7 +114,7 @@ class OverlayService : Service() {
             textSize = 22f
             setTextColor(Color.WHITE)
             elevation = 12f
-            contentDescription = "ClipFlow 懸浮下載工具"
+            contentDescription = "IGThreadsDownloader 懸浮下載工具"
             setPadding(0, 0, 0, dp(2))
         }
         bubbleParams = WindowManager.LayoutParams(
@@ -217,7 +217,7 @@ class OverlayService : Service() {
                         showPanel()
                         AppGraph.overlayCoordinator.resolve(clipboardUrl)
                     } else {
-                        panelHint = "尚未偵測到連結。請在 IG / Threads 點「分享」後複製連結，或分享到 ClipFlow。"
+                        panelHint = "尚未偵測到連結。請在 IG / Threads 點「分享」後複製連結，或分享到 IGThreadsDownloader。"
                         showPanel()
                     }
                 }
@@ -572,7 +572,7 @@ class OverlayService : Service() {
         manager.createNotificationChannel(
             NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "ClipFlow 懸浮工具",
+                "IGThreadsDownloader 懸浮工具",
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
                 description = "顯示可拖曳的媒體解析工具"
