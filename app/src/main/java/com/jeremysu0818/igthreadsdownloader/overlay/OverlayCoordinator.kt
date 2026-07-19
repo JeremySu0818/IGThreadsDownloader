@@ -1,7 +1,5 @@
 package com.jeremysu0818.igthreadsdownloader.overlay
 
-import android.content.Context
-import androidx.core.content.edit
 import com.jeremysu0818.igthreadsdownloader.data.download.AndroidDownloadRepository
 import com.jeremysu0818.igthreadsdownloader.data.resolver.ResolverRepository
 import com.jeremysu0818.igthreadsdownloader.domain.download.DownloadStatus
@@ -19,7 +17,6 @@ import kotlinx.coroutines.launch
 
 enum class OverlayPhase {
     IDLE,
-    DETECTED,
     RESOLVING,
     READY,
     DOWNLOADING,
@@ -31,56 +28,35 @@ data class OverlayState(
     val detectedUrl: String? = null,
     val manifest: MediaManifest? = null,
     val errorMessage: String? = null,
-    val paused: Boolean = false,
-    val targetAppForeground: Boolean = false,
     val activeDownloadIds: Set<Long> = emptySet(),
 )
 
 class OverlayCoordinator(
-    context: Context,
     private val resolverRepository: ResolverRepository,
     private val downloadRepository: AndroidDownloadRepository,
 ) {
-    private val preferences =
-        context.getSharedPreferences("overlay_preferences", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val _state = MutableStateFlow(
-        OverlayState(paused = preferences.getBoolean(KEY_PAUSED, false)),
-    )
+    private val _state = MutableStateFlow(OverlayState())
     val state: StateFlow<OverlayState> = _state.asStateFlow()
 
-    fun onTargetAppForeground(isForeground: Boolean) {
-        _state.update { current ->
-            current.copy(
-                targetAppForeground = isForeground,
-                phase = if (
-                    !isForeground &&
-                    current.phase in setOf(OverlayPhase.IDLE, OverlayPhase.DETECTED)
-                ) {
-                    OverlayPhase.IDLE
-                } else {
-                    current.phase
-                },
+    fun showError(message: String) {
+        _state.update {
+            it.copy(
+                phase = OverlayPhase.ERROR,
+                detectedUrl = null,
+                manifest = null,
+                errorMessage = message,
             )
         }
     }
 
-    fun onDetectedUrl(url: String) {
-        val current = _state.value
-        if (current.paused || current.detectedUrl == url) return
-        _state.value = current.copy(
-            phase = OverlayPhase.DETECTED,
-            detectedUrl = url,
-            manifest = null,
-            errorMessage = null,
-        )
-    }
-
-    fun resolveCurrent() {
-        _state.value.detectedUrl?.let(::resolve)
-    }
-
     fun resolve(url: String) {
+        if (
+            _state.value.phase == OverlayPhase.RESOLVING &&
+            _state.value.detectedUrl == url
+        ) {
+            return
+        }
         scope.launch {
             _state.update {
                 it.copy(
@@ -162,18 +138,6 @@ class OverlayCoordinator(
         }
     }
 
-    fun togglePaused() {
-        val paused = !_state.value.paused
-        preferences.edit { putBoolean(KEY_PAUSED, paused) }
-        _state.update {
-            it.copy(
-                paused = paused,
-                phase = if (paused) OverlayPhase.IDLE else it.phase,
-                errorMessage = null,
-            )
-        }
-    }
-
     fun clearError() {
         _state.update {
             it.copy(
@@ -181,9 +145,5 @@ class OverlayCoordinator(
                 errorMessage = null,
             )
         }
-    }
-
-    companion object {
-        private const val KEY_PAUSED = "detection_paused"
     }
 }

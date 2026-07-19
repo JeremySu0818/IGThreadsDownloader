@@ -31,7 +31,6 @@ object AppGraph {
         resolverRepository = ResolverRepository()
         downloadRepository = AndroidDownloadRepository(app)
         overlayCoordinator = OverlayCoordinator(
-            context = app,
             resolverRepository = resolverRepository,
             downloadRepository = downloadRepository,
         )

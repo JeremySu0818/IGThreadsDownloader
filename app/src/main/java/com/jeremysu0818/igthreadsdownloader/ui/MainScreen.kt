@@ -72,7 +72,6 @@ fun MainScreen(
     viewModel: MainViewModel,
     permissionStatus: AppPermissionStatus,
     onOverlaySettings: () -> Unit,
-    onAccessibilitySettings: () -> Unit,
     onNotificationPermission: () -> Unit,
     onStartOverlay: () -> Unit,
     onStopOverlay: () -> Unit,
@@ -101,7 +100,6 @@ fun MainScreen(
                 onParse = viewModel::parse,
                 onPasteClipboard = onPasteClipboard,
                 onOverlaySettings = onOverlaySettings,
-                onAccessibilitySettings = onAccessibilitySettings,
                 onNotificationPermission = onNotificationPermission,
                 onStartOverlay = onStartOverlay,
                 onStopOverlay = onStopOverlay,
@@ -214,7 +212,6 @@ private fun DownloadPage(
     onParse: () -> Unit,
     onPasteClipboard: () -> Unit,
     onOverlaySettings: () -> Unit,
-    onAccessibilitySettings: () -> Unit,
     onNotificationPermission: () -> Unit,
     onStartOverlay: () -> Unit,
     onStopOverlay: () -> Unit,
@@ -239,7 +236,6 @@ private fun DownloadPage(
             PermissionPanel(
                 status = permissionStatus,
                 onOverlaySettings = onOverlaySettings,
-                onAccessibilitySettings = onAccessibilitySettings,
                 onNotificationPermission = onNotificationPermission,
                 onStartOverlay = onStartOverlay,
                 onStopOverlay = onStopOverlay,
@@ -286,7 +282,7 @@ private fun IntroBlock() {
         )
         Spacer(Modifier.height(7.dp))
         Text(
-            "從分享、剪貼簿或懸浮工具取得公開 URL；只有你按下下載時才會建立工作。",
+            "複製公開 URL 後點懸浮球，或直接在 App 貼上；解析完成後再選擇下載項目。",
             color = TextSecondary,
             fontSize = 14.sp,
             lineHeight = 21.sp,
@@ -298,7 +294,6 @@ private fun IntroBlock() {
 private fun PermissionPanel(
     status: AppPermissionStatus,
     onOverlaySettings: () -> Unit,
-    onAccessibilitySettings: () -> Unit,
     onNotificationPermission: () -> Unit,
     onStartOverlay: () -> Unit,
     onStopOverlay: () -> Unit,
@@ -307,7 +302,6 @@ private fun PermissionPanel(
         SectionLabel("快速工具設定")
         Spacer(Modifier.height(10.dp))
         PermissionRow("懸浮視窗", "顯示右側可拖曳按鈕", status.overlay, onOverlaySettings)
-        PermissionRow("無障礙偵測", "僅限 Instagram / Threads 前景", status.accessibility, onAccessibilitySettings)
         PermissionRow("通知", "顯示前景服務與下載結果", status.notifications, onNotificationPermission)
         PermissionRow("儲存", "Downloads/IGThreads（Android 10+）", true, {})
         Spacer(Modifier.height(12.dp))
@@ -329,7 +323,7 @@ private fun PermissionPanel(
         if (!status.overlayReady) {
             Spacer(Modifier.height(9.dp))
             Text(
-                "開啟懸浮視窗與無障礙服務後，即可在 IG / Threads 上顯示工具。",
+                "開啟懸浮視窗後，複製 IG / Threads 公開連結並點懸浮球即可解析。",
                 color = Warning,
                 fontSize = 12.sp,
                 lineHeight = 17.sp,

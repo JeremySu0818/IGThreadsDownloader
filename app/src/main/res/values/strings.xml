@@ -1,9 +1,7 @@
 <resources>
     <string name="app_name">IGThreadsDownloader</string>
-    <string name="accessibility_service_label">IGThreadsDownloader 媒體偵測</string>
-    <string name="accessibility_service_description">僅在 Instagram 與 Threads 前景時讀取畫面上的公開連結，讓使用者透過懸浮工具主動解析與下載；不會自動點擊或背景下載。</string>
     <string name="overlay_notification_title">IGThreadsDownloader 懸浮工具運作中</string>
-    <string name="overlay_notification_text">只在你點擊下載後才會建立下載工作</string>
+    <string name="overlay_notification_text">複製 IG / Threads 連結後點懸浮球即可解析</string>
     <string name="overlay_brand" translatable="false">IGTHREADSDOWNLOADER</string>
     <string name="media_kind_video">影片</string>
     <string name="media_kind_image">圖片</string>

@@ -1,35 +1,28 @@
 package com.jeremysu0818.igthreadsdownloader.permissions
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityService
-import android.app.NotificationManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
-import com.jeremysu0818.igthreadsdownloader.accessibility.MediaDetectionAccessibilityService
 import com.jeremysu0818.igthreadsdownloader.overlay.OverlayService
 
 data class AppPermissionStatus(
     val overlay: Boolean,
-    val accessibility: Boolean,
     val notifications: Boolean,
 ) {
     val overlayReady: Boolean
-        get() = overlay && accessibility
+        get() = overlay
 }
 
 object PermissionStatus {
     fun current(context: Context): AppPermissionStatus = AppPermissionStatus(
         overlay = Settings.canDrawOverlays(context),
-        accessibility = isAccessibilityServiceEnabled(context),
         notifications = notificationsEnabled(context),
     )
 
@@ -38,9 +31,6 @@ object PermissionStatus {
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             "package:${context.packageName}".toUri(),
         )
-
-    fun accessibilitySettingsIntent(): Intent =
-        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
 
     fun notificationSettingsIntent(context: Context): Intent =
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -70,23 +60,6 @@ object PermissionStatus {
     fun shouldRunOverlay(context: Context): Boolean =
         context.getSharedPreferences(OVERLAY_PREFERENCES, Context.MODE_PRIVATE)
             .getBoolean(KEY_OVERLAY_ENABLED, true)
-
-    private fun isAccessibilityServiceEnabled(context: Context): Boolean {
-        val expected = ComponentName(context, MediaDetectionAccessibilityService::class.java)
-            .flattenToString()
-        val enabled = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-        ).orEmpty()
-        val globallyEnabled = Settings.Secure.getInt(
-            context.contentResolver,
-            Settings.Secure.ACCESSIBILITY_ENABLED,
-            0,
-        ) == 1
-        return globallyEnabled && enabled.split(':').any {
-            it.equals(expected, ignoreCase = true)
-        }
-    }
 
     private fun notificationsEnabled(context: Context): Boolean {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false

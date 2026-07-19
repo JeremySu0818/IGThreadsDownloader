@@ -26,7 +26,6 @@ class MainActivity : ComponentActivity() {
     private var permissionStatus by mutableStateOf(
         AppPermissionStatus(
             overlay = false,
-            accessibility = false,
             notifications = false,
         ),
     )
@@ -54,9 +53,6 @@ class MainActivity : ComponentActivity() {
                     permissionStatus = permissionStatus,
                     onOverlaySettings = {
                         startActivity(PermissionStatus.overlaySettingsIntent(this))
-                    },
-                    onAccessibilitySettings = {
-                        startActivity(PermissionStatus.accessibilitySettingsIntent())
                     },
                     onNotificationPermission = ::requestNotificationPermission,
                     onStartOverlay = {

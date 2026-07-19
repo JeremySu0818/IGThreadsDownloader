@@ -36,9 +36,9 @@ class ThreadsHtmlResolver(
         val request = Request.Builder()
             .url(endpoint)
             .get()
-            .header("User-Agent", ANDROID_CHROME_USER_AGENT)
+            .header("User-Agent", THREADS_EMBED_USER_AGENT)
             .header("Accept", "text/html,application/xhtml+xml")
-            .header("Referer", BASE_URL)
+            .header("Referer", normalized.normalizedUrl)
             .build()
 
         try {
@@ -79,10 +79,9 @@ class ThreadsHtmlResolver(
     }
 
     fun buildEndpoint(sourceUrl: String): HttpUrl =
-        "$BASE_URL/download".toHttpUrl()
-            .newBuilder()
-            .addQueryParameter("url", sourceUrl)
-            .build()
+        UrlNormalizer.normalizeThreads(sourceUrl)
+            ?.let { "$BASE_URL/t/${it.shortcode}/embed".toHttpUrl() }
+            ?: sourceUrl.toHttpUrl()
 
     internal fun parseHtml(
         sourceUrl: String,
@@ -111,6 +110,10 @@ class ThreadsHtmlResolver(
             }
         }
 
+        document.select(".MediaContainer img[src], .MediaContainer img[data-src]").forEach { element ->
+            val attribute = if (element.hasAttr("src")) "src" else "data-src"
+            addCandidate(candidates, element.mediaSource(attribute), MediaItemType.IMAGE, 110)
+        }
         document.select("video[src], video source[src], source[src]").forEach { element ->
             val source = element.mediaSource("src")
             addCandidate(candidates, source, MediaItemType.VIDEO, 80)
@@ -146,7 +149,7 @@ class ThreadsHtmlResolver(
 
         val requestHeaders = buildMap {
             put("User-Agent", ANDROID_CHROME_USER_AGENT)
-            put("Referer", BASE_URL)
+            put("Referer", normalized.normalizedUrl)
             cookieHeader?.takeIf { it.isNotBlank() }?.let { put("Cookie", it) }
         }
         val filenames = mutableSetOf<String>()
@@ -263,8 +266,13 @@ class ThreadsHtmlResolver(
         val path = parsed.encodedPath.lowercase(Locale.US)
         val combined = "$host$path"
         if (blockedTokens.any(combined::contains)) return false
+        if (parsed.queryParameter("_nc_sid") == "30ff31" ||
+            Regex("""/t\d+\.\d+-19/""").containsMatchIn(path)
+        ) {
+            return false
+        }
         val hasMediaExtension = mediaExtensions.any(path::endsWith)
-        if (host == "threadsphotodownloader.com" || host == "www.threadsphotodownloader.com") {
+        if (host == LEGACY_DOWNLOADER_HOST || host == "www.$LEGACY_DOWNLOADER_HOST") {
             return hasMediaExtension &&
                 ("/media/" in path || "/download/" in path || "/files/" in path)
         }
@@ -281,7 +289,9 @@ class ThreadsHtmlResolver(
     )
 
     companion object {
-        const val BASE_URL = "https://threadsphotodownloader.com"
+        const val BASE_URL = "https://www.threads.com"
+        private const val LEGACY_DOWNLOADER_HOST = "threadsphotodownloader.com"
+        private const val THREADS_EMBED_USER_AGENT = "Mozilla/5.0"
 
         private val imageExtensions = listOf(".jpg", ".jpeg", ".png", ".webp", ".avif")
         private val videoExtensions = listOf(".mp4", ".mov", ".m3u8")

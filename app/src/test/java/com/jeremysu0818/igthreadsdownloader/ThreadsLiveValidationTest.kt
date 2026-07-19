@@ -18,12 +18,11 @@ class ThreadsLiveValidationTest {
     fun confirmedThreadsUrlReturnsRealMedia() = runBlocking {
         assumeTrue(System.getenv("RUN_LIVE_RESOLVER_TESTS") == "true")
         val sourceUrl =
-            "https://www.threads.com/@jere.my0818/post/Da-qUPhgayG" +
-                "?xmt=AQG0z-e4gEeGf__WPzUsgnz4MxUrverhOKD5A5WpmlY4jQ"
+            "https://www.threads.com/@jiangmingyuan9/post/Da9u2HzlAaT"
 
         val result = ThreadsHtmlResolver().resolve(sourceUrl)
 
-        assertTrue(result is ResolverResult.Success)
+        assertTrue("Expected success but got $result", result is ResolverResult.Success)
         val items = (result as ResolverResult.Success).manifest.items
         assertTrue(items.isNotEmpty())
         assertTrue(items.all { it.downloadUrl.startsWith("https://") })

@@ -59,6 +59,7 @@ class OverlayService : Service() {
     private var currentState = OverlayState()
     private var panelControls = false
     private var panelHint: String? = null
+    private var clipboardReadJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -144,7 +145,7 @@ class OverlayService : Service() {
         var longPressed = false
         var longPressJob: Job? = null
 
-        bubbleView.setOnClickListener { handleBubbleClick() }
+        bubbleView.setOnClickListener { beginBubbleAction() }
         bubbleView.setOnTouchListener { view, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -203,30 +204,52 @@ class OverlayService : Service() {
         }
     }
 
+    private fun beginBubbleAction() {
+        clipboardReadJob?.cancel()
+        setBubbleFocusable(true)
+        clipboardReadJob = serviceScope.launch {
+            // Android 10+ only exposes clipboard data to the focused app. Focus is
+            // requested only after this explicit tap and released immediately after.
+            kotlinx.coroutines.delay(CLIPBOARD_FOCUS_DELAY_MS)
+            try {
+                handleBubbleClick()
+            } finally {
+                setBubbleFocusable(false)
+            }
+        }
+    }
+
+    private fun setBubbleFocusable(focusable: Boolean) {
+        if (!::windowManager.isInitialized || !::bubbleParams.isInitialized) return
+        bubbleParams.flags = if (focusable) {
+            bubbleParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        } else {
+            bubbleParams.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        }
+        runCatching { windowManager.updateViewLayout(bubbleView, bubbleParams) }
+    }
+
     private fun handleBubbleClick() {
         panelControls = false
         panelHint = null
         when (currentState.phase) {
-            OverlayPhase.IDLE -> {
-                if (currentState.paused) {
-                    panelControls = true
-                    showPanel()
-                } else {
-                    val clipboardUrl = readClipboardUrl()
-                    if (clipboardUrl != null) {
+            OverlayPhase.RESOLVING, OverlayPhase.DOWNLOADING -> showPanel()
+            else -> {
+                val clipboardUrl = readClipboardUrl()
+                when {
+                    clipboardUrl == null -> {
+                        panelHint =
+                            "剪貼簿沒有可支援的 IG / Threads 公開連結。請先複製貼文 URL，再點一次懸浮球。"
+                        showPanel()
+                    }
+                    clipboardUrl == currentState.detectedUrl &&
+                        currentState.manifest != null -> showPanel()
+                    else -> {
                         showPanel()
                         AppGraph.overlayCoordinator.resolve(clipboardUrl)
-                    } else {
-                        panelHint = "尚未偵測到連結。請在 IG / Threads 點「分享」後複製連結，或分享到 IGThreadsDownloader。"
-                        showPanel()
                     }
                 }
             }
-            OverlayPhase.DETECTED -> {
-                showPanel()
-                AppGraph.overlayCoordinator.resolveCurrent()
-            }
-            else -> showPanel()
         }
     }
 
@@ -285,17 +308,9 @@ class OverlayService : Service() {
             OverlayPhase.IDLE -> {
                 content.addView(
                     bodyText(
-                        if (currentState.paused) "偵測已暫停。" else "等待 Instagram / Threads 公開連結。",
+                        "先複製 Instagram / Threads 公開連結，再點懸浮球開始解析。",
                         COLOR_MUTED,
                     ).withTopMargin(12),
-                )
-            }
-            OverlayPhase.DETECTED -> {
-                content.addView(bodyText("已偵測連結，點下方開始解析。", COLOR_MUTED).withTopMargin(12))
-                content.addView(
-                    primaryButton("解析目前內容") {
-                        AppGraph.overlayCoordinator.resolveCurrent()
-                    }.withTopMargin(14),
                 )
             }
             OverlayPhase.RESOLVING -> {
@@ -350,22 +365,15 @@ class OverlayService : Service() {
     private fun renderControlMenu(content: LinearLayout) {
         content.addView(
             bodyText(
-                if (currentState.paused) "目前已暫停畫面偵測" else "懸浮工具控制",
+                "懸浮工具控制",
                 COLOR_MUTED,
             ).withTopMargin(12),
-        )
-        content.addView(
-            primaryButton(if (currentState.paused) "恢復偵測" else "暫停偵測") {
-                AppGraph.overlayCoordinator.togglePaused()
-                panelControls = false
-                renderPanel()
-            }.withTopMargin(14),
         )
         content.addView(
             secondaryButton("移回右側預設位置") {
                 moveToDefaultPosition()
                 removePanel()
-            }.withTopMargin(8),
+            }.withTopMargin(14),
         )
         content.addView(
             dangerButton("關閉懸浮工具") { closeOverlay() }.withTopMargin(8),
@@ -476,9 +484,7 @@ class OverlayService : Service() {
     private fun renderBubble(state: OverlayState) {
         if (!::bubbleView.isInitialized) return
         val (label, color) = when {
-            state.paused -> "Ⅱ" to COLOR_MUTED
             state.phase == OverlayPhase.IDLE -> "↓" to COLOR_IDLE
-            state.phase == OverlayPhase.DETECTED -> "●" to COLOR_DETECTED
             state.phase == OverlayPhase.RESOLVING -> "…" to COLOR_ACCENT
             state.phase == OverlayPhase.READY -> "✓" to COLOR_READY
             state.phase == OverlayPhase.DOWNLOADING -> "⇩" to COLOR_ACCENT
@@ -486,7 +492,7 @@ class OverlayService : Service() {
         }
         bubbleView.text = label
         bubbleView.background = roundedDrawable(color, dp(28).toFloat())
-        bubbleView.alpha = if (state.targetAppForeground || state.phase != OverlayPhase.IDLE) 1f else 0.86f
+        bubbleView.alpha = if (state.phase == OverlayPhase.IDLE) 0.9f else 1f
     }
 
     private fun snapBubbleToEdge() {
@@ -549,13 +555,16 @@ class OverlayService : Service() {
     }
 
     private fun readClipboardUrl(): String? {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val text = clipboard.primaryClip
-            ?.getItemAt(0)
-            ?.coerceToText(this)
-            ?.toString()
-            .orEmpty()
-        return UrlNormalizer.extractSupportedUrl(text)
+        return runCatching {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val text = clipboard.primaryClip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.coerceToText(this)
+                ?.toString()
+                .orEmpty()
+            UrlNormalizer.extractSupportedUrl(text)
+        }.getOrNull()
     }
 
     private fun openInApp(sourceUrl: String?) {
@@ -706,11 +715,11 @@ class OverlayService : Service() {
             "com.jeremysu0818.igthreadsdownloader.action.STOP_OVERLAY"
         private const val KEY_X = "bubble_x"
         private const val KEY_Y = "bubble_y"
+        private const val CLIPBOARD_FOCUS_DELAY_MS = 80L
 
         private const val COLOR_PANEL = 0xFF14171C.toInt()
         private const val COLOR_PANEL_ALT = 0xFF242932.toInt()
         private const val COLOR_IDLE = 0xFF3D444F.toInt()
-        private const val COLOR_DETECTED = 0xFFFFB84D.toInt()
         private const val COLOR_ACCENT = 0xFF5B6CFF.toInt()
         private const val COLOR_READY = 0xFF22B573.toInt()
         private const val COLOR_ERROR = 0xFFFF6B72.toInt()

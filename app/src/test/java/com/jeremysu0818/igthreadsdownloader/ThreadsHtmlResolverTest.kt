@@ -17,12 +17,12 @@ class ThreadsHtmlResolverTest {
             "?xmt=AQG0z-e4gEeGf__WPzUsgnz4MxUrverhOKD5A5WpmlY4jQ"
 
     @Test
-    fun endpointUsesEncodedQueryParameter() {
+    fun endpointUsesOfficialEmbedPage() {
         val endpoint = resolver.buildEndpoint(sourceUrl)
 
-        assertEquals(sourceUrl, endpoint.queryParameter("url"))
-        assertTrue(endpoint.toString().contains("url=https%3A%2F%2Fwww.threads.com%2F%40"))
-        assertFalse(endpoint.toString().contains("url=https://"))
+        assertEquals("www.threads.com", endpoint.host)
+        assertEquals("/t/Da-qUPhgayG/embed", endpoint.encodedPath)
+        assertFalse(endpoint.toString().contains("threadsphotodownloader"))
     }
 
     @Test
