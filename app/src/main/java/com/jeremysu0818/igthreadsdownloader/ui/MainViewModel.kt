@@ -18,6 +18,7 @@ enum class MainTab {
     DOWNLOAD,
     QUEUE,
     HISTORY,
+    SETTINGS,
 }
 
 data class MainUiState(

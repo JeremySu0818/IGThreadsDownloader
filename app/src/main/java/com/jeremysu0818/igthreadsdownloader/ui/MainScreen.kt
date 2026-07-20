@@ -41,9 +41,11 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -132,14 +134,9 @@ fun MainScreen(
             when (state.tab) {
                 MainTab.DOWNLOAD -> DownloadPage(
                     state = state,
-                    permissionStatus = permissionStatus,
                     onInputChange = viewModel::updateInput,
                     onParse = viewModel::parse,
                     onPasteClipboard = onPasteClipboard,
-                    onOverlaySettings = onOverlaySettings,
-                    onNotificationPermission = onNotificationPermission,
-                    onStartOverlay = onStartOverlay,
-                    onStopOverlay = onStopOverlay,
                     onToggleItem = viewModel::toggleSelection,
                     onSelectAll = viewModel::selectAll,
                     onDownload = viewModel::downloadSelected,
@@ -163,6 +160,13 @@ fun MainScreen(
                     onOpen = viewModel::open,
                     onShare = viewModel::share,
                     onDelete = viewModel::delete,
+                )
+                MainTab.SETTINGS -> SettingsPage(
+                    permissionStatus = permissionStatus,
+                    onOverlaySettings = onOverlaySettings,
+                    onNotificationPermission = onNotificationPermission,
+                    onStartOverlay = onStartOverlay,
+                    onStopOverlay = onStopOverlay,
                 )
             }
         }
@@ -198,7 +202,7 @@ private fun MainHeader(permissionStatus: AppPermissionStatus) {
             Icon(
                 imageVector = Icons.Default.Download,
                 contentDescription = null,
-                tint = Color.White,
+                tint = MatteTextPrimary,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -237,6 +241,7 @@ private fun BottomNavBar(
         NavItem(MainTab.DOWNLOAD, "解析", Icons.Default.Download, 0),
         NavItem(MainTab.QUEUE, "佇列", Icons.Default.Bolt, activeCount),
         NavItem(MainTab.HISTORY, "紀錄", Icons.Default.History, historyCount),
+        NavItem(MainTab.SETTINGS, "設定", Icons.Default.Settings, 0),
     )
 
     Box(
@@ -255,10 +260,10 @@ private fun BottomNavBar(
                 style = HazeStyle(
                     backgroundColor = MatteBg,
                     blurRadius = 15.dp,
-                    tint = HazeTint(Color(0xC816181D))
+                    tint = HazeTint(MatteCard.copy(alpha = 0.78f))
                 )
             )
-            .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(28.dp)),
+            .border(1.dp, MatteCardBorder, RoundedCornerShape(28.dp)),
     ) {
 
         // Layer 2: Ultra-Crisp Foreground Content Layer (Text and Icons are 100% sharp)
@@ -309,7 +314,7 @@ private fun BottomNavBar(
                             ) {
                                 Text(
                                     "${navItem.count}",
-                                    color = Color.White,
+                                    color = MatteTextPrimary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -325,14 +330,9 @@ private fun BottomNavBar(
 @Composable
 private fun DownloadPage(
     state: MainUiState,
-    permissionStatus: AppPermissionStatus,
     onInputChange: (String) -> Unit,
     onParse: () -> Unit,
     onPasteClipboard: () -> Unit,
-    onOverlaySettings: () -> Unit,
-    onNotificationPermission: () -> Unit,
-    onStartOverlay: () -> Unit,
-    onStopOverlay: () -> Unit,
     onToggleItem: (String) -> Unit,
     onSelectAll: (Boolean) -> Unit,
     onDownload: () -> Unit,
@@ -347,15 +347,6 @@ private fun DownloadPage(
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item {
-            QuickSettingsCard(
-                status = permissionStatus,
-                onOverlaySettings = onOverlaySettings,
-                onNotificationPermission = onNotificationPermission,
-                onStartOverlay = onStartOverlay,
-                onStopOverlay = onStopOverlay,
-            )
-        }
         item {
             UrlInputCard(
                 value = state.input,
@@ -455,6 +446,105 @@ private fun QuickSettingsCard(
                 modifier = Modifier.weight(1f),
                 onClick = onStopOverlay,
             )
+        }
+    }
+}
+
+@Composable
+private fun SettingsPage(
+    permissionStatus: AppPermissionStatus,
+    onOverlaySettings: () -> Unit,
+    onNotificationPermission: () -> Unit,
+    onStartOverlay: () -> Unit,
+    onStopOverlay: () -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = 20.dp,
+            top = 8.dp,
+            end = 20.dp,
+            bottom = 100.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            QuickSettingsCard(
+                status = permissionStatus,
+                onOverlaySettings = onOverlaySettings,
+                onNotificationPermission = onNotificationPermission,
+                onStartOverlay = onStartOverlay,
+                onStopOverlay = onStopOverlay,
+            )
+        }
+        item {
+            MatteCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = MatteTextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "儲存設定",
+                        color = MatteTextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MatteBg)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "預設儲存位置",
+                            color = MatteTextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            "系統標準 Downloads / 媒體庫",
+                            color = MatteTextMuted,
+                            fontSize = 11.sp,
+                        )
+                    }
+                    SimpleBadge("自動管理", MatteEmerald)
+                }
+            }
+        }
+        item {
+            MatteCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MatteTextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "關於此應用程式",
+                        color = MatteTextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "IG & Threads 下載器專為方便儲存 Instagram 及 Threads 之公開圖片與影片設計。",
+                    color = MatteTextMuted,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                )
+            }
         }
     }
 }
@@ -949,14 +1039,14 @@ private fun HighRadiusButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (enabled) Color.White else MatteTextMuted,
+                    tint = if (enabled) MatteTextPrimary else MatteTextMuted,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(Modifier.width(6.dp))
             }
             Text(
                 text,
-                color = if (enabled) Color.White else MatteTextMuted,
+                color = if (enabled) MatteTextPrimary else MatteTextMuted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
             )
@@ -1022,7 +1112,7 @@ private fun SimpleCheckCircle(selected: Boolean) {
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = null,
-                tint = Color.White,
+                tint = MatteTextPrimary,
                 modifier = Modifier.size(13.dp)
             )
         }

@@ -36,6 +36,7 @@ import com.jeremysu0818.igthreadsdownloader.data.resolver.UrlNormalizer
 import com.jeremysu0818.igthreadsdownloader.domain.model.MediaItem
 import com.jeremysu0818.igthreadsdownloader.domain.model.MediaItemType
 import com.jeremysu0818.igthreadsdownloader.permissions.PermissionStatus
+import com.jeremysu0818.igthreadsdownloader.ui.theme.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -113,7 +114,7 @@ class OverlayService : Service() {
         bubbleView = AccessibleBubbleView(this).apply {
             gravity = Gravity.CENTER
             textSize = 22f
-            setTextColor(Color.WHITE)
+            setTextColor(MatteTextPrimaryInt)
             elevation = 12f
             contentDescription = "IGThreadsDownloader 懸浮下載工具"
             setPadding(0, 0, 0, dp(2))
@@ -352,7 +353,7 @@ class OverlayService : Service() {
                 text = getString(R.string.overlay_brand)
                 textSize = 13f
                 letterSpacing = 0.12f
-                setTextColor(Color.WHITE)
+                setTextColor(MatteTextPrimaryInt)
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
             },
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
@@ -408,7 +409,7 @@ class OverlayService : Service() {
         content.addView(
             bodyText(
                 "${manifest.items.size} 個項目  ·  原始畫質  ·  ${estimatedSize(manifest.items)}",
-                Color.WHITE,
+                MatteTextPrimaryInt,
             ).withTopMargin(10),
         )
         if (manifest.warnings.isNotEmpty()) {
@@ -467,7 +468,7 @@ class OverlayService : Service() {
                 formatBytes(item.contentLength),
             )
             textSize = 13f
-            setTextColor(Color.WHITE)
+            setTextColor(MatteTextPrimaryInt)
             buttonTintList = ColorStateList(
                 arrayOf(
                     intArrayOf(android.R.attr.state_checked),
@@ -635,12 +636,12 @@ class OverlayService : Service() {
         text: String,
         enabled: Boolean = true,
         action: () -> Unit,
-    ): TextView = actionButton(text, if (enabled) COLOR_ACCENT else COLOR_IDLE, Color.WHITE) {
+    ): TextView = actionButton(text, if (enabled) COLOR_ACCENT else COLOR_IDLE, MatteTextPrimaryInt) {
         if (enabled) action()
     }.apply { isEnabled = enabled }
 
     private fun secondaryButton(text: String, action: () -> Unit): TextView =
-        actionButton(text, COLOR_PANEL_ALT, Color.WHITE, action)
+        actionButton(text, COLOR_PANEL_ALT, MatteTextPrimaryInt, action)
 
     private fun dangerButton(text: String, action: () -> Unit): TextView =
         actionButton(text, COLOR_ERROR_DARK, COLOR_ERROR_LIGHT, action)
@@ -717,16 +718,16 @@ class OverlayService : Service() {
         private const val KEY_Y = "bubble_y"
         private const val CLIPBOARD_FOCUS_DELAY_MS = 80L
 
-        private const val COLOR_PANEL = 0xFF14171C.toInt()
-        private const val COLOR_PANEL_ALT = 0xFF242932.toInt()
-        private const val COLOR_IDLE = 0xFF3D444F.toInt()
-        private const val COLOR_ACCENT = 0xFF5B6CFF.toInt()
-        private const val COLOR_READY = 0xFF22B573.toInt()
-        private const val COLOR_ERROR = 0xFFFF6B72.toInt()
-        private const val COLOR_ERROR_DARK = 0xFF48262A.toInt()
-        private const val COLOR_ERROR_LIGHT = 0xFFFFB3B7.toInt()
-        private const val COLOR_WARNING = 0xFFFFCF70.toInt()
-        private const val COLOR_MUTED = 0xFFA8B0BD.toInt()
+        private val COLOR_PANEL = MatteCardInt
+        private val COLOR_PANEL_ALT = MatteCardHoverInt
+        private val COLOR_IDLE = MatteCardBorderInt
+        private val COLOR_ACCENT = MattePrimaryInt
+        private val COLOR_READY = MatteEmeraldInt
+        private val COLOR_ERROR = MatteRoseInt
+        private val COLOR_ERROR_DARK = MatteRoseDarkInt
+        private val COLOR_ERROR_LIGHT = MatteRoseLightInt
+        private val COLOR_WARNING = MatteAmberInt
+        private val COLOR_MUTED = MatteTextSecondaryInt
     }
 }
 

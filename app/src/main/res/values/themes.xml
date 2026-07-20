@@ -4,8 +4,8 @@
     <style name="Theme.IGThreadsDownloader" parent="android:Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#0D0F13</item>
-        <item name="android:navigationBarColor">#0D0F13</item>
+        <item name="android:statusBarColor">#0D0E11</item>
+        <item name="android:navigationBarColor">#0D0E11</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>
