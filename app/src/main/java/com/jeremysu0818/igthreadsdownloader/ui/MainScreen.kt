@@ -1,5 +1,9 @@
 package com.jeremysu0818.igthreadsdownloader.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +47,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -53,6 +58,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import com.jeremysu0818.igthreadsdownloader.ui.theme.ThemeMode
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -163,6 +169,8 @@ fun MainScreen(
                 )
                 MainTab.SETTINGS -> SettingsPage(
                     permissionStatus = permissionStatus,
+                    currentThemeMode = state.themeMode,
+                    onSelectThemeMode = viewModel::selectThemeMode,
                     onOverlaySettings = onOverlaySettings,
                     onNotificationPermission = onNotificationPermission,
                     onStartOverlay = onStartOverlay,
@@ -237,11 +245,26 @@ private fun BottomNavBar(
     historyCount: Int,
     onSelect: (MainTab) -> Unit,
 ) {
-    val items = listOf(
-        NavItem(MainTab.DOWNLOAD, "解析", Icons.Default.Download, 0),
-        NavItem(MainTab.QUEUE, "佇列", Icons.Default.Bolt, activeCount),
-        NavItem(MainTab.HISTORY, "紀錄", Icons.Default.History, historyCount),
-        NavItem(MainTab.SETTINGS, "設定", Icons.Default.Settings, 0),
+    val items = remember(activeCount, historyCount) {
+        listOf(
+            NavItem(MainTab.DOWNLOAD, "解析", Icons.Default.Download, 0),
+            NavItem(MainTab.QUEUE, "佇列", Icons.Default.Bolt, activeCount),
+            NavItem(MainTab.HISTORY, "紀錄", Icons.Default.History, historyCount),
+            NavItem(MainTab.SETTINGS, "設定", Icons.Default.Settings, 0),
+        )
+    }
+
+    val selectedIndex = remember(selected) {
+        items.indexOfFirst { it.tab == selected }.coerceAtLeast(0)
+    }
+
+    val animatedIndex by animateFloatAsState(
+        targetValue = selectedIndex.toFloat(),
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = 0.75f,
+        ),
+        label = "nav_slider_position",
     )
 
     Box(
@@ -265,59 +288,88 @@ private fun BottomNavBar(
             )
             .border(1.dp, MatteCardBorder, RoundedCornerShape(28.dp)),
     ) {
-
-        // Layer 2: Ultra-Crisp Foreground Content Layer (Text and Icons are 100% sharp)
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(5.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(5.dp)
         ) {
-            items.forEach { navItem ->
-                val isSelected = selected == navItem.tab
-
+            // Animated translucent slider pill
+            Box(modifier = Modifier.matchParentSize()) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxHeight()
+                        .fillMaxWidth(1f / items.size)
+                        .graphicsLayer {
+                            translationX = animatedIndex * size.width
+                        }
                         .clip(RoundedCornerShape(22.dp))
-                        .background(if (isSelected) MatteCardHover else Color.Transparent)
-                        .clickable { onSelect(navItem.tab) }
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                        .background(MatteCardHover)
+                )
+            }
+
+            // Foreground items Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                items.forEach { navItem ->
+                    val isSelected = selected == navItem.tab
+
+                    val animatedIconTint by animateColorAsState(
+                        targetValue = if (isSelected) MattePrimary else MatteTextMuted,
+                        label = "icon_tint"
+                    )
+                    val animatedTextColor by animateColorAsState(
+                        targetValue = if (isSelected) MatteTextPrimary else MatteTextMuted,
+                        label = "text_color"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(22.dp))
+                            .clickable { onSelect(navItem.tab) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = navItem.icon,
-                            contentDescription = navItem.label,
-                            tint = if (isSelected) MattePrimary else MatteTextMuted,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            navItem.label,
-                            color = if (isSelected) MatteTextPrimary else MatteTextMuted,
-                            fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        )
-                        if (navItem.count > 0) {
-                            Spacer(Modifier.width(5.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(if (isSelected) MattePrimary else MatteCardBorder)
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "${navItem.count}",
-                                    color = MatteTextPrimary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = navItem.icon,
+                                contentDescription = navItem.label,
+                                tint = animatedIconTint,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                navItem.label,
+                                color = animatedTextColor,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            )
+                            if (navItem.count > 0) {
+                                Spacer(Modifier.width(5.dp))
+                                val animatedBadgeBg by animateColorAsState(
+                                    targetValue = if (isSelected) MattePrimary else MatteCardBorder,
+                                    label = "badge_bg"
                                 )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(animatedBadgeBg)
+                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "${navItem.count}",
+                                        color = MatteTextPrimary,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
@@ -451,8 +503,88 @@ private fun QuickSettingsCard(
 }
 
 @Composable
+private fun ThemeModeCard(
+    currentMode: ThemeMode,
+    onSelectMode: (ThemeMode) -> Unit,
+) {
+    MatteCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Palette,
+                contentDescription = null,
+                tint = MatteTextSecondary,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "顏色模式",
+                color = MatteTextPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            ThemeOptionChip(
+                label = "系統預設",
+                selected = currentMode == ThemeMode.SYSTEM,
+                modifier = Modifier.weight(1f),
+                onClick = { onSelectMode(ThemeMode.SYSTEM) }
+            )
+            ThemeOptionChip(
+                label = "淺色模式",
+                selected = currentMode == ThemeMode.LIGHT,
+                modifier = Modifier.weight(1f),
+                onClick = { onSelectMode(ThemeMode.LIGHT) }
+            )
+            ThemeOptionChip(
+                label = "深色模式",
+                selected = currentMode == ThemeMode.DARK,
+                modifier = Modifier.weight(1f),
+                onClick = { onSelectMode(ThemeMode.DARK) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeOptionChip(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) MatteCardHover else MatteBg)
+            .border(
+                1.dp,
+                if (selected) MattePrimary else MatteCardBorder,
+                RoundedCornerShape(16.dp)
+            )
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (selected) MattePrimary else MatteTextSecondary,
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+        )
+    }
+}
+
+@Composable
 private fun SettingsPage(
     permissionStatus: AppPermissionStatus,
+    currentThemeMode: ThemeMode,
+    onSelectThemeMode: (ThemeMode) -> Unit,
     onOverlaySettings: () -> Unit,
     onNotificationPermission: () -> Unit,
     onStartOverlay: () -> Unit,
@@ -468,6 +600,12 @@ private fun SettingsPage(
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        item {
+            ThemeModeCard(
+                currentMode = currentThemeMode,
+                onSelectMode = onSelectThemeMode,
+            )
+        }
         item {
             QuickSettingsCard(
                 status = permissionStatus,
@@ -1147,6 +1285,7 @@ private fun SimpleBanner(text: String, color: Color) {
     }
 }
 
+@Composable
 private fun statusColor(status: DownloadStatus): Color = when (status) {
     DownloadStatus.QUEUED, DownloadStatus.RUNNING, DownloadStatus.PAUSED -> MattePrimary
     DownloadStatus.SUCCEEDED -> MatteEmerald

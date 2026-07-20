@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+import android.content.Context
+import com.jeremysu0818.igthreadsdownloader.ui.theme.ThemeMode
+
 enum class MainTab {
     DOWNLOAD,
     QUEUE,
@@ -23,6 +26,7 @@ enum class MainTab {
 
 data class MainUiState(
     val tab: MainTab = MainTab.DOWNLOAD,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val input: String = "",
     val isResolving: Boolean = false,
     val manifest: MediaManifest? = null,
@@ -40,10 +44,28 @@ class MainViewModel : ViewModel() {
     private var lastAutomaticUrl: String? = null
 
     init {
+        loadThemeMode()
         viewModelScope.launch {
             downloadRepository.records.collect { records ->
                 _state.update { it.copy(records = records) }
             }
+        }
+    }
+
+    private fun loadThemeMode() {
+        runCatching {
+            val prefs = AppGraph.application.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+            val savedName = prefs.getString("theme_mode", ThemeMode.SYSTEM.name)
+            val mode = ThemeMode.valueOf(savedName ?: ThemeMode.SYSTEM.name)
+            _state.update { it.copy(themeMode = mode) }
+        }
+    }
+
+    fun selectThemeMode(mode: ThemeMode) {
+        _state.update { it.copy(themeMode = mode) }
+        runCatching {
+            val prefs = AppGraph.application.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+            prefs.edit().putString("theme_mode", mode.name).apply()
         }
     }
 

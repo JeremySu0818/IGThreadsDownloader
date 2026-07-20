@@ -21,6 +21,11 @@ import com.jeremysu0818.igthreadsdownloader.ui.MainScreen
 import com.jeremysu0818.igthreadsdownloader.ui.MainViewModel
 import com.jeremysu0818.igthreadsdownloader.ui.theme.IGThreadsDownloaderTheme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import com.jeremysu0818.igthreadsdownloader.ui.theme.ThemeMode
+
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
     private var permissionStatus by mutableStateOf(
@@ -41,13 +46,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
-        }
         handleIntent(intent)
         setContent {
-            IGThreadsDownloaderTheme {
+            val state by viewModel.state.collectAsState()
+            val isDark = when (state.themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+
+            DisposableEffect(isDark) {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !isDark
+                    isAppearanceLightNavigationBars = !isDark
+                }
+                onDispose {}
+            }
+
+            IGThreadsDownloaderTheme(themeMode = state.themeMode) {
                 MainScreen(
                     viewModel = viewModel,
                     permissionStatus = permissionStatus,
