@@ -17,7 +17,7 @@ val LightMatteCardHover = Color(0xFFEFEFEA)
 
 // Accent Colors
 val DefaultMattePrimary = Color(0xFFB86646)
-val DefaultMatteEmerald = Color(0xFF10B981)
+val DefaultMatteEmerald = Color(0xFF396AB8)
 val DefaultMatteAmber = Color(0xFFF59E0B)
 val DefaultMatteRose = Color(0xFFEF4444)
 val DefaultMatteRoseDark = Color(0xFF3D161A)
