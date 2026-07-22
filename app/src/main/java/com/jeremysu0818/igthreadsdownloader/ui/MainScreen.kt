@@ -133,7 +133,7 @@ fun MainScreen(
             .background(MatteBg)
             .statusBarsPadding(),
     ) {
-        Column(
+             Column(
             modifier = Modifier.fillMaxSize().hazeSource(state = hazeState),
         ) {
             when (state.tab) {
@@ -229,11 +229,11 @@ private fun BottomNavBar(
             .fillMaxWidth()
             .shadow(
                 elevation = 14.dp,
-                shape = RoundedCornerShape(28.dp),
+                shape = CircleShape,
                 spotColor = Color.Black.copy(alpha = 0.45f),
                 ambientColor = Color.Black.copy(alpha = 0.25f),
             )
-            .clip(RoundedCornerShape(28.dp))
+            .clip(CircleShape)
             .hazeEffect(
                 state = hazeState,
                 style = HazeStyle(
@@ -242,7 +242,7 @@ private fun BottomNavBar(
                     tint = HazeTint(MatteCard.copy(alpha = 0.78f))
                 )
             )
-            .border(1.dp, MatteCardBorder, RoundedCornerShape(28.dp)),
+            .border(1.dp, MatteCardBorder, CircleShape),
     ) {
         Box(
             modifier = Modifier
@@ -258,7 +258,7 @@ private fun BottomNavBar(
                         .graphicsLayer {
                             translationX = animatedIndex * size.width
                         }
-                        .clip(RoundedCornerShape(22.dp))
+                        .clip(CircleShape)
                         .background(MatteCardHover.copy(alpha = 0.55f))
                 )
             }
@@ -284,7 +284,7 @@ private fun BottomNavBar(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(22.dp))
+                            .clip(CircleShape)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -720,9 +720,9 @@ private fun UrlInputCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(MatteBg)
-                .border(1.dp, MatteCardBorder, RoundedCornerShape(18.dp))
+                .border(1.dp, MatteCardBorder, RoundedCornerShape(16.dp))
                 .padding(13.dp),
         ) {
             BasicTextField(
@@ -1100,10 +1100,10 @@ private fun MatteCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(38.dp))
             .background(MatteCard)
-            .border(1.dp, MatteCardBorder, RoundedCornerShape(22.dp))
-            .padding(16.dp),
+            .border(1.dp, MatteCardBorder, RoundedCornerShape(38.dp))
+            .padding(14.dp),
         content = content,
     )
 }

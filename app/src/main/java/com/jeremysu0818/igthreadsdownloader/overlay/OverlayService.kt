@@ -394,7 +394,7 @@ class OverlayService : Service() {
             content.addView(
                 ImageView(this).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
-                    background = roundedDrawable(COLOR_PANEL_ALT, dp(14).toFloat())
+                    background = roundedDrawable(COLOR_PANEL_ALT, dp(12).toFloat())
                     clipToOutline = true
                     load(thumbnailUrl) {
                         crossfade(true)
