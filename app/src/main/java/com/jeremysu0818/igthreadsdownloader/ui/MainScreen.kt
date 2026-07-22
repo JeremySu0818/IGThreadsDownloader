@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -135,8 +136,6 @@ fun MainScreen(
         Column(
             modifier = Modifier.fillMaxSize().hazeSource(state = hazeState),
         ) {
-            MainHeader(permissionStatus = permissionStatus)
-
             when (state.tab) {
                 MainTab.DOWNLOAD -> DownloadPage(
                     state = state,
@@ -192,49 +191,6 @@ fun MainScreen(
     }
 }
 
-@Composable
-private fun MainHeader(permissionStatus: AppPermissionStatus) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MattePrimary),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Download,
-                contentDescription = null,
-                tint = MatteTextPrimary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                "IG & Threads 下載器",
-                color = MatteTextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                "公開影音與圖片儲存",
-                color = MatteTextMuted,
-                fontSize = 11.sp,
-            )
-        }
-        
-        SimpleStatusPill(
-            text = if (permissionStatus.overlayReady) "懸浮視窗已開啟" else "懸浮視窗未開啟",
-            enabled = permissionStatus.overlayReady
-        )
-    }
-}
 
 @Composable
 private fun BottomNavBar(
@@ -303,7 +259,7 @@ private fun BottomNavBar(
                             translationX = animatedIndex * size.width
                         }
                         .clip(RoundedCornerShape(22.dp))
-                        .background(MatteCardHover)
+                        .background(MatteCardHover.copy(alpha = 0.55f))
                 )
             }
 
@@ -329,7 +285,10 @@ private fun BottomNavBar(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(22.dp))
-                            .clickable { onSelect(navItem.tab) }
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { onSelect(navItem.tab) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
